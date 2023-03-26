@@ -1,23 +1,28 @@
-from typing import List
+from typing import List, Dict
 from basemodel import Model
 
-
 class MockModel(Model):
+    
+    name = "mock_model"
+    description = "Mock model for testing purposes"
+
     @classmethod
     def supported_models(cls) -> List[str]:
-        return ["mock_model"]
+        return [cls.name]
 
     def _verify_model(self):
-        pass
+        if self.model not in self.supported_models():
+            raise ValueError(f"Unsupported model: {self.model}")
 
     def set_key(self, api_key: str):
-        pass
+        self.api_key = api_key
 
     def set_model(self, model: str):
-        pass
+        self.model = model
+        self._verify_model()
 
     def get_description(self) -> str:
-        return "Mock model for testing"
+        return self.description
 
     def get_endpoint(self) -> str:
         return "https://mock.endpoint/"
