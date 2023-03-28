@@ -31,8 +31,7 @@ class HuggingFace_Complete(Model):
         api_wait=None,
         api_retry=None,
         max_completion_length: int = 20,
-    ):  
-        
+    ):
         self.set_key(api_key)
         self.set_model(model_id_or_url)
         super().__init__(self.api_key, self.model, api_wait, api_retry)
@@ -49,7 +48,6 @@ class HuggingFace_Complete(Model):
         self.do_sample = do_sample
         self.max_completion_length = max_completion_length
 
-        
         self._verify_model()
         self.parser = Parser()
         self.set_key(self.api_key)
@@ -65,14 +63,11 @@ class HuggingFace_Complete(Model):
             model: f"check more details at https://huggingface.co/{model}"
             for model in sorted(item["id"] for item in response.json())
         }
-    
-    
+
     def _verify_model(self):
-        
         if self.model not in self.supported_models():
             raise ValueError(f"Unsupported model: {self.model}")
-    
-    
+
     def set_key(self, api_key: Optional[str]):
         self.api_key = api_key
         self._headers = build_hf_headers(
@@ -80,11 +75,10 @@ class HuggingFace_Complete(Model):
         )
 
     def set_model(self, model: str):
-        
         self.model = model
         if self.model.startswith("https://") and "huggingface" in self.model:
             # User provided a URL pointing to a Inference Endpoint
-            self._url  = self.model
+            self._url = self.model
             self.model = self.model.split("models/")[-1]
         else:
             self._url = self.get_endpoint()
