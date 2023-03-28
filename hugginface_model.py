@@ -69,7 +69,6 @@ class HuggingFace_Complete(Model):
     
     def _verify_model(self):
         
-        print(self.model)
         if self.model not in self.supported_models():
             raise ValueError(f"Unsupported model: {self.model}")
     
