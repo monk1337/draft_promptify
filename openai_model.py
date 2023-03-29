@@ -90,14 +90,14 @@ class OpenAI_Complete(Model):
         max_tokens = self.default_max_tokens(self.model) - prompt_tokens
         return max_tokens
 
-    def model_output(self, response: Dict) -> Dict:
+    def model_output_raw(self, response: Dict) -> Dict:
         
         data = {}
         data["text"]  = response["choices"][0]["text"]
         data["usage"] = dict(response["usage"])
         return data
 
-    def model_output_with_parser(self, response: Dict, max_completion_length: int) -> Dict:
+    def model_output(self, response: Dict, max_completion_length: int) -> Dict:
         
         data = {}
         data["text"]   = self.parser.escaped_(response["choices"][0]["text"])
