@@ -7,12 +7,12 @@ class Prompter:
     def __init__(
         self,
         model,
-        templates_path: Optional[str] = None,
+        templates: Optional[str] = None,
         allowed_missing_variables: Optional[List[str]] = None,
         default_variable_values: Optional[Dict[str, Any]] = None,
     ) -> None:
 
-        self.templates_path = self.get_templates_path(templates_path)
+        self.templates_path = self.get_templates_path(templates)
         self.environment = Environment(loader=FileSystemLoader(self.templates_path))
         self.model = model
 
