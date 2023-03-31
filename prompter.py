@@ -8,6 +8,7 @@ class Prompter:
         self,
         model,
         templates: Optional[str] = None,
+        raw_prompt: Optional[str] = None,
         allowed_missing_variables: Optional[List[str]] = None,
         default_variable_values: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -15,6 +16,7 @@ class Prompter:
         self.templates_path = self.get_templates_path(templates)
         self.environment = Environment(loader=FileSystemLoader(self.templates_path))
         self.model = model
+        self.raw_prompt = raw_prompt
 
         self.allowed_missing_variables = allowed_missing_variables or [
             "examples",
@@ -25,6 +27,9 @@ class Prompter:
         self.model_args_count = self.model.run.__code__.co_argcount
         self.model_variables = self.model.run.__code__.co_varnames[1 : self.model_args_count]
         self.prompt_variables_map = {}
+
+        if raw_prompt is not None:
+            self.raw_fit(raw_prompt)
 
     def get_templates_path(self, templates_path: Optional[str]) -> str:
         if templates_path is None:
@@ -75,8 +80,30 @@ class Prompter:
         template = self.environment.get_template(template_name)
         prompt = template.render(**kwargs).strip()
         return prompt
+    
+
+    def raw_fit(self, prompt: str):
+        """Runs the model with the given prompt."""
+
+        output = self.model.execute_with_retry(prompts=[prompt])
+        output = self.model_output(output)
+        return output
+    
+    def load_default_config(self, task_name: str, **kwargs):
+        if kwargs['default_config']:
+            for key in self.model_variables:
+                if key not in kwargs:
+                    setattr(self.model, key, self.default_variable_values[key])
+        return self.model
+
 
     def fit(self, template_name: str, **kwargs):
+
+        if kwargs['default_model_config']:
+            for key in self.model_variables:
+                if key not in kwargs:
+                    setattr(self.model, key, self.default_variable_values[key])
+        
         """Runs the model with the prompt generated from the given template and keyword arguments."""
 
         prompt_variables = self.get_template_variables(template_name)
@@ -90,10 +117,3 @@ class Prompter:
         output = self.model.execute_with_retry(prompts=[prompt])
         output = self.model_output(output)
         return output
-
-    def model_output(self, raw_output: Dict[str, Any]) -> Any:
-        """
-        Process the raw output from the model and return the result in the desired format.
-        Override this method to implement custom output processing.
-        """
-        return raw_output.get("choices", [])[0].get("text", "").strip()
