@@ -1,25 +1,36 @@
+# raw code
+
 import os
 import glob
 from typing import List, Dict, Any, Optional
 from jinja2 import Environment, FileSystemLoader, meta
 
 
+# mmultiple templates support -> ['ner.json', 'qa.json', 'summary.json']
+# multtiple with custom template -> ['ner.json', 'qa.json', 'summary.json', 'custom_template.jinja']
+# custom template -> ['custom_template.jinja']
+
 class Prompter:
     def __init__(
         self,
         model,
         template: Optional[str] = None,
+        raw_prompt: Optional[str] = None,
         allowed_missing_variables: Optional[List[str]] = None,
         default_variable_values: Optional[Dict[str, Any]] = None,
         max_completion_length: int = 20,
+        cache_prompt: bool = False,
+        store: str = None,
     ) -> None:
         
         
-        assert template!=None,"ReferenceError: template is not defined"
-        
-        self.load_template(template)
+        self.template = template
+        self.raw_prompt = raw_prompt
         self.model = model
         self.max_completion_length = max_completion_length
+        self.cache_prompt = cache_prompt
+        self.prompt_cache = {}
+        self.store = store
 
         self.allowed_missing_variables = allowed_missing_variables or [
             "examples",
@@ -32,23 +43,23 @@ class Prompter:
         self.prompt_variables_map = {}
 
 
-    def availabel_templates(self, template_path: str) -> Dict[str, str]:
+    def available_templates(self, template_path: str) -> Dict[str, str]:
 
         all_templates = glob.glob(f'{template_path}/*jinja')
         template_names= [template.split('/')[-1] for template in all_templates]
         template_dict = dict(zip(template_names, all_templates))
         return template_dict
     
+    def update_default_variable_values(self, new_defaults: Dict[str, Any]) -> None:
+        """Updates the default variable values with the given dictionary."""
+        self.default_variable_values.update(new_defaults)
+    
 
     def load_template(self, template: str):
         
-        dir_path          = os.path.dirname(os.path.realpath('./codes/'))
-        
-        
-        templates_dir     = os.path.join(dir_path, "templates")
-        print(templates_dir)
-        
-        default_templates = self.availabel_templates(templates_dir)
+        dir_path          = os.path.dirname(os.path.realpath(__file__))
+        templates_dir     = os.path.join(dir_path, "templates")        
+        default_templates = self.available_templates(templates_dir)
         
 
         if template in default_templates:
@@ -95,6 +106,8 @@ class Prompter:
         """Generates a prompt using the given template and keyword arguments."""
 
         variables = self.get_template_variables()
+
+        
         
         variables_missing = [
             variable
@@ -126,6 +139,14 @@ class Prompter:
         """Runs the model with the prompt generated from the given template and keyword arguments."""
         
         
+        if self.raw_prompt:
+            return self.raw_fit(self.raw_prompt)
+        
+        if not self.template:
+            raise ValueError("ReferenceError: template is not defined. Task template from existing templates such as ner.jinja, qa.jinja etc or provide custom jinja template with absolute path")
+
+
+        self.load_template(self.template)
         prompt_variables = self.get_template_variables()
         prompt_kwargs = {
             variable: value
@@ -133,6 +154,23 @@ class Prompter:
             if variable in prompt_variables
         }
         prompt = self.generate_prompt(**prompt_kwargs)
-        response = self.model.execute_with_retry(prompts=[prompt])
-        outputs  = [self.model.model_output(output, max_completion_length = self.max_completion_length) for output in response]
+
+        if self.cache_prompt and prompt in self.prompt_cache:
+            output = self.prompt_cache[prompt]
+        else:
+            response = self.model.execute_with_retry(prompts=[prompt])
+            outputs  = [self.model.model_output(output, max_completion_length = self.max_completion_length) for output in response]
+            if self.cache_prompt:
+                self.prompt_cache[prompt] = output
+            
+            if self.store:
+                # need to integrate different databased or json format store
+                # if json -> create one folder, assign one unique id to file and store prompt, responses in json formats
+                # if db -> create one table, assign one unique id to row and store prompt, responses in json formats
+                # if csv -> create one csv file, assign one unique id to row and store prompt, responses in json formats
+                # if txt -> create one txt file, assign one unique id to row and store prompt, responses in json formats
+                # if pickle -> create one pickle file, assign one unique id to row and store prompt, responses in json formats
+                # if hdf5 -> create one hdf5 file, assign one unique id to row and store prompt, responses in json formats
+                pass
+
         return outputs
