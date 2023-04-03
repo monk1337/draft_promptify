@@ -1,6 +1,3 @@
-# updated code
-
-
 import os
 import glob
 import uuid
