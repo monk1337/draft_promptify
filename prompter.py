@@ -60,7 +60,7 @@ class Prompter:
             return self.loaded_templates[template]
 
         current_dir = os.path.dirname(os.path.realpath("."))
-        templates_dir = os.path.join(current_dir, "templates")
+        templates_dir = os.path.join(current_dir, "codes", "templates")
 
         default_templates = self.get_available_templates(templates_dir)
 
@@ -93,9 +93,9 @@ class Prompter:
         if not os.path.isfile(templates_path):
             raise ValueError(f"Templates path {templates_path} does not exist")
 
-    def list_templates(self) -> List[str]:
+    def list_templates(self, environment) -> List[str]:
         """Returns a list of available templates."""
-        return self.environment.list_templates()
+        return environment.list_templates()
 
     def get_multiple_template_variables(self, dict_templates: dict):
         results = {}
@@ -156,8 +156,9 @@ class Prompter:
 
         prompt = self.generate_prompt(text_input, **kwargs)
 
-        if kwargs["verbose"]:
-            print(prompt)
+        if "verbose" in kwargs:
+            if kwargs["verbose"]:
+                print(prompt)
 
         if self.cache_prompt and prompt in self.prompt_cache:
             output = self.prompt_cache[prompt]
