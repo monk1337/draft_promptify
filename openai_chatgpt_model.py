@@ -5,14 +5,14 @@ from parser import Parser
 from base_model import Model
 
 
-class OpenAI_Complete(Model):
+class OpenAI_ChatComplete(Model):
     name = "OpenAI"
     description = "OpenAI API for text completion using various models"
 
     def __init__(
         self,
         api_key: str,
-        model: str = "text-davinci-003",
+        model: str = "gpt-3.5-turbo",
         temperature: float = 0.7,
         top_p: float = 1,
         n: int = 1,
@@ -27,6 +27,9 @@ class OpenAI_Complete(Model):
         api_wait=None,
         api_retry=None,
         max_completion_length: int = 20,
+        messages = [
+        {"role": "system", "content": "you are a helpful assistant"},
+        ],
     ):
         super().__init__(api_key, model, api_wait, api_retry)
 
@@ -45,6 +48,7 @@ class OpenAI_Complete(Model):
         self._verify_model()
         self.encoder    = tiktoken.encoding_for_model(self.model)
         self.max_tokens = self.default_max_tokens(self.model)
+        self.messages = messages
 
         self.parser = Parser()
         self.set_key(self.api_key)
@@ -52,18 +56,14 @@ class OpenAI_Complete(Model):
     @classmethod
     def supported_models(cls) -> Dict[str, str]:
         return {
-            "text-davinci-003": "text-davinci-003 can do any language task with better quality, longer output, and consistent instruction-following than the curie, babbage, or ada models. Also supports inserting completions within text.",
-            "text-curie-001": "text-curie-001 is very capable, faster and lower cost than Davinci.",
-            "text-babbage-001": "text-babbage-001 is capable of straightforward tasks, very fast, and lower cost.",
-            "text-ada-001": "text-ada-001 is capable of very simple tasks, usually the fastest model in the GPT-3 series, and lowest cost.",
-        }
+            "gpt-4": "More capable than any GPT-3.5 model, able to do more complex tasks, and optimized for chat. Will be updated with our latest model iteration.",
+            "gpt-3.5-turbo": "	Most capable GPT-3.5 model and optimized for chat at 1/10th the cost of text-davinci-003. Will be updated with our latest model iteration",
+            }
 
     def default_max_tokens(self, model_name: str) -> int:
         token_dict = {
-            "text-davinci-003": 4000,
-            "text-curie-001": 2048,
-            "text-babbage-001": 2048,
-            "text-ada-001": 2048,
+            "gpt-4": 8192,
+            "gpt-3.5-turbo": 4096,
         }
         return token_dict[model_name]
 
@@ -87,6 +87,7 @@ class OpenAI_Complete(Model):
         return model["id"]
 
     def calculate_max_tokens(self, prompt: str) -> int:
+        prompt =  str(prompt)
         prompt_tokens = len(self.encoder.encode(prompt))
         max_tokens = self.default_max_tokens(self.model) - prompt_tokens
         return max_tokens
@@ -125,31 +126,31 @@ class OpenAI_Complete(Model):
             "request_timeout": self.request_timeout,
         }
 
-    def run(self, prompts: List[str]) -> List[Optional[str]]:
+    def run(self, prompt: str) -> List[Optional[str]]:
         """
-        prompts: The prompt(s) to generate completions for, encoded as a string, array of strings, array of tokens, or array of token arrays.
-        """
+        prompt: str - The prompt to use for the completion
+       """
         result = []
+        
+        self.messages.append({"role": "user", "content": prompt})
 
-        for prompt in prompts:
-            # Automatically calculate max output tokens if not specified
+        max_tokens = self.calculate_max_tokens(self.messages)
+        response = self._openai.ChatCompletion.create(
+            model=self.model,
+            messages= self.messages,
+            max_tokens=max_tokens,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            n=self.n,
+            stop=self.stop,
+            logit_bias=self.logit_bias,
+            request_timeout=self.request_timeout,
+            presence_penalty=self.presence_penalty,
+            frequency_penalty=self.frequency_penalty,
+        )
 
-            max_tokens = self.calculate_max_tokens(prompt)
-            response = self._openai.Completion.create(
-                model=self.model,
-                prompt=prompt,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                n=self.n,
-                logprobs=self.logprobs,
-                echo=self.echo,
-                stop=self.stop,
-                best_of=self.best_of,
-                logit_bias=self.logit_bias,
-                request_timeout=self.request_timeout,
-                presence_penalty=self.presence_penalty,
-                frequency_penalty=self.frequency_penalty,
-            )
-            result.append(response)
-        return result
+        self.messages.append({"role": "assistant", "content": response["choices"][0]["message"]["content"].strip(" \n")})
+
+        result.append(response["choices"][0]["message"]["content"].strip(" \n"))
+        
+        return result[-1], self.messages
